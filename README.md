@@ -1,3 +1,64 @@
+## Excel MCP Server Minio
+
+原作者开发的Excel MCP Server，只能在本地使用（因为文件只能保存在本地文件系统），不支持在线平台的远程访问功能（上传和下载）
+
+本项目在Excel MCP Server的基础上，添加了minio远程上传下载文件的功能：
+
+- 每次操作excel文件用户需传入文件名，大模型会自动访问远程存在的excel文件。
+- 然后可以读取数据、插入数据、生成图表、数据计算等等...
+- 最后将生成后的excel文件下载链接返回给用户。
+
+注：远程文件访问平台使用的是minio
+
+
+
+### 如何部署
+
+我打包好了docker镜像，excel-mcp-server-minio-image.tar
+
+```shell
+# 加载镜像
+docker load -i excel-mcp-server-minio-image.tar
+
+# 配置物理机的excel_files路径
+# 配置物理机的config.ini路径
+# 启动
+docker run -d \
+--name excel-mcp-server-minio \
+-p 8000:8017 \
+-v ./excel_files:/app/excel_files \
+-v ./config.ini:/app/conf/config.ini \
+-e EXCEL_FILES_PATH="/app/excel_files" \
+excel-mcp-server-minio:1.0
+
+# 如何导入大模型平台使用，参考下面Usage部分
+
+# 导入成功后，可以使用下面提示词来测试
+1、conversation_id的值为{#每个会话的id#}。
+2、有关excel的一切操作都需要调用excel_mcp_server工具
+3、每次调用excel_mcp_server都要返回下载链接。
+4、用户每次有操作excel的需求时，先查看一下是否有这个文件，如果有则在该文件的基础上修改、计算等。
+```
+
+
+
+config.ini示例：
+
+```
+[minio]
+endpoint = ip:port
+access_key = xxx
+secret_key = xxx
+bucket = xxx
+secure = false
+```
+
+
+
+
+
+## Features
+
 <p align="center">
   <img src="https://raw.githubusercontent.com/haris-musa/excel-mcp-server/main/assets/logo.png" alt="Excel MCP Server Logo" width="300"/>
 </p>
@@ -10,7 +71,7 @@
 
 A Model Context Protocol (MCP) server that lets you manipulate Excel files without needing Microsoft Excel installed. Create, read, and modify Excel workbooks with your AI agent.
 
-## Features
+
 
 - 📊 **Excel Operations**: Create, read, update workbooks and worksheets
 - 📈 **Data Manipulation**: Formulas, formatting, charts, pivot tables, and Excel tables

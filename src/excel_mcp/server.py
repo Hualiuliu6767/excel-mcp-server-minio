@@ -38,6 +38,8 @@ from excel_mcp.sheet import (
     delete_rows,
     delete_cols,
 )
+from util.minio_util import MinioClient
+
 
 # Get project root directory path for log file path.
 # When using the stdio transmission method,
@@ -63,6 +65,10 @@ logging.basicConfig(
     ],
 )
 logger = logging.getLogger("excel-mcp")
+
+minio_client = MinioClient()
+logger.info(minio_client.config)
+
 # Initialize FastMCP server
 mcp = FastMCP(
     "excel-mcp",
@@ -89,12 +95,19 @@ def get_excel_path(filename: str) -> str:
         # Must use absolute path
         raise ValueError(f"Invalid filename: {filename}, must be an absolute path when not in SSE mode")
 
+    abs_path = os.path.join(EXCEL_FILES_PATH, filename)
+    # 跟据filename文件路径判断文件是否在minio
+    if minio_client.minio_is_exists(filename):
+        # 存在则下载到abs_path路径下 ， 不存在则不下载
+        minio_client.minio_download(filename, abs_path)
+
     # In SSE mode, if it's a relative path, resolve it based on EXCEL_FILES_PATH
-    return os.path.join(EXCEL_FILES_PATH, filename)
+    return abs_path
 
 @mcp.tool()
 def apply_formula(
-    filepath: str,
+    conversation_id: str,
+    filename: str,
     sheet_name: str,
     cell: str,
     formula: str,
@@ -103,44 +116,62 @@ def apply_formula(
     Apply Excel formula to cell.
     Excel formula will write to cell with verification.
     """
+    full_path = None
     try:
+        filepath = os.path.join(conversation_id, filename)
         full_path = get_excel_path(filepath)
         # First validate the formula
         validation = validate_formula_impl(full_path, sheet_name, cell, formula)
         if isinstance(validation, dict) and "error" in validation:
             return f"Error: {validation['error']}"
-            
+
         # If valid, apply the formula
         from excel_mcp.calculations import apply_formula as apply_formula_impl
         result = apply_formula_impl(full_path, sheet_name, cell, formula)
+        # 上传minio
+        minio_client.minio_upload(filepath, full_path)
         return result["message"]
     except (ValidationError, CalculationError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error applying formula: {e}")
         raise
+    finally:
+        # 删除full_path文件
+        if full_path and os.path.exists(full_path):
+            os.remove(full_path)
 
 @mcp.tool()
 def validate_formula_syntax(
-    filepath: str,
+    conversation_id: str,
+    filename: str,
     sheet_name: str,
     cell: str,
     formula: str,
 ) -> str:
     """Validate Excel formula syntax without applying it."""
+    full_path = None
     try:
+        filepath = os.path.join(conversation_id, filename)
         full_path = get_excel_path(filepath)
         result = validate_formula_impl(full_path, sheet_name, cell, formula)
+        # 上传minio
+        minio_client.minio_upload(filepath, full_path)
         return result["message"]
     except (ValidationError, CalculationError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error validating formula: {e}")
         raise
+    finally:
+        # 删除full_path文件
+        if full_path and os.path.exists(full_path):
+            os.remove(full_path)
 
 @mcp.tool()
 def format_range(
-    filepath: str,
+    conversation_id: str,
+    filename: str,
     sheet_name: str,
     start_cell: str,
     end_cell: Optional[str] = None,
@@ -160,10 +191,12 @@ def format_range(
     conditional_format: Optional[Dict[str, Any]] = None
 ) -> str:
     """Apply formatting to a range of cells."""
+    full_path = None
     try:
+        filepath = os.path.join(conversation_id, filename)
         full_path = get_excel_path(filepath)
         from excel_mcp.formatting import format_range as format_range_func
-        
+
         # Convert None values to appropriate defaults for the underlying function
         format_range_func(
             filepath=full_path,
@@ -185,16 +218,23 @@ def format_range(
             protection=protection,  # This can be None
             conditional_format=conditional_format  # This can be None
         )
+        # 上传minio
+        minio_client.minio_upload(filepath, full_path)
         return "Range formatted successfully"
     except (ValidationError, FormattingError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error formatting range: {e}")
         raise
+    finally:
+        # 删除full_path文件
+        if full_path and os.path.exists(full_path):
+            os.remove(full_path)
 
 @mcp.tool()
 def read_data_from_excel(
-    filepath: str,
+    conversation_id: str,
+    filename: str,
     sheet_name: str,
     start_cell: str = "A1",
     end_cell: Optional[str] = None,
@@ -202,41 +242,48 @@ def read_data_from_excel(
 ) -> str:
     """
     Read data from Excel worksheet with cell metadata including validation rules.
-    
+
     Args:
         filepath: Path to Excel file
         sheet_name: Name of worksheet
         start_cell: Starting cell (default A1)
         end_cell: Ending cell (optional, auto-expands if not provided)
         preview_only: Whether to return preview only
-    
-    Returns:  
+
+    Returns:
     JSON string containing structured cell data with validation metadata.
     Each cell includes: address, value, row, column, and validation info (if any).
     """
+    full_path = None
     try:
+        filepath = os.path.join(conversation_id, filename)
         full_path = get_excel_path(filepath)
         from excel_mcp.data import read_excel_range_with_metadata
         result = read_excel_range_with_metadata(
-            full_path, 
-            sheet_name, 
-            start_cell, 
+            full_path,
+            sheet_name,
+            start_cell,
             end_cell
         )
         if not result or not result.get("cells"):
             return "No data found in specified range"
-            
+
         # Return as formatted JSON string
         import json
         return json.dumps(result, indent=2, default=str)
-        
+
     except Exception as e:
         logger.error(f"Error reading data: {e}")
         raise
+    finally:
+        # 删除full_path文件
+        if full_path and os.path.exists(full_path):
+            os.remove(full_path)
 
 @mcp.tool()
 def write_data_to_excel(
-    filepath: str,
+    conversation_id: str,
+    filename: str,
     sheet_name: str,
     data: List[List],
     start_cell: str = "A1",
@@ -245,54 +292,87 @@ def write_data_to_excel(
     Write data to Excel worksheet.
     Excel formula will write to cell without any verification.
 
-    PARAMETERS:  
+    PARAMETERS:
     filepath: Path to Excel file
     sheet_name: Name of worksheet to write to
     data: List of lists containing data to write to the worksheet, sublists are assumed to be rows
     start_cell: Cell to start writing to, default is "A1"
-  
+
     """
+    full_path = None
     try:
+        filepath = os.path.join(conversation_id, filename)
         full_path = get_excel_path(filepath)
         result = write_data(full_path, sheet_name, data, start_cell)
+        # 上传minio
+        minio_client.minio_upload(filepath, full_path)
         return result["message"]
     except (ValidationError, DataError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error writing data: {e}")
         raise
+    finally:
+        # 删除full_path文件
+        if full_path and os.path.exists(full_path):
+            os.remove(full_path)
 
 @mcp.tool()
-def create_workbook(filepath: str) -> str:
+def create_workbook(conversation_id: str, filename: str) -> str:
     """Create new Excel workbook."""
+    full_path = None
+    filepath_bak = filename
     try:
+        filepath = os.path.join(conversation_id, filename)
         full_path = get_excel_path(filepath)
         from excel_mcp.workbook import create_workbook as create_workbook_impl
         create_workbook_impl(full_path)
-        return f"Created workbook at {full_path}"
+        # 上传minio
+        minio_client.minio_upload(filepath, full_path)
+        return f"Created workbook at {filepath_bak}"
     except WorkbookError as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error creating workbook: {e}")
         raise
+    finally:
+        # 删除full_path文件
+        if full_path and os.path.exists(full_path):
+            os.remove(full_path)
 
 @mcp.tool()
-def create_worksheet(filepath: str, sheet_name: str) -> str:
+def get_excel_download_url(conversation_id: str, filename: str) -> str:
+    """Return a downloadable HTTP URL."""
+    filepath = os.path.join(conversation_id, filename)
+    download_url = minio_client.minio_get_download_url(filepath)
+    return f'[{filepath}]({download_url})'
+
+@mcp.tool()
+def create_worksheet(conversation_id: str, filename: str, sheet_name: str) -> str:
     """Create new worksheet in workbook."""
+    full_path = None
     try:
+        filepath = os.path.join(conversation_id, filename)
         full_path = get_excel_path(filepath)
         from excel_mcp.workbook import create_sheet as create_worksheet_impl
         result = create_worksheet_impl(full_path, sheet_name)
+        # 上传minio
+        minio_client.minio_upload(filepath, full_path)
         return result["message"]
     except (ValidationError, WorkbookError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error creating worksheet: {e}")
         raise
+    finally:
+        # 删除full_path文件
+        if full_path and os.path.exists(full_path):
+            os.remove(full_path)
 
 @mcp.tool()
 def create_chart(
-    filepath: str,
+    conversation_id: str,
+    filename: str,
     sheet_name: str,
     data_range: str,
     chart_type: str,
@@ -302,7 +382,9 @@ def create_chart(
     y_axis: str = ""
 ) -> str:
     """Create chart in worksheet."""
+    full_path = None
     try:
+        filepath = os.path.join(conversation_id, filename)
         full_path = get_excel_path(filepath)
         result = create_chart_impl(
             filepath=full_path,
@@ -314,16 +396,23 @@ def create_chart(
             x_axis=x_axis,
             y_axis=y_axis
         )
+        # 上传minio
+        minio_client.minio_upload(filepath, full_path)
         return result["message"]
     except (ValidationError, ChartError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error creating chart: {e}")
         raise
+    finally:
+        # 删除full_path文件
+        if full_path and os.path.exists(full_path):
+            os.remove(full_path)
 
 @mcp.tool()
 def create_pivot_table(
-    filepath: str,
+    conversation_id: str,
+    filename: str,
     sheet_name: str,
     data_range: str,
     rows: List[str],
@@ -332,7 +421,9 @@ def create_pivot_table(
     agg_func: str = "mean"
 ) -> str:
     """Create pivot table in worksheet."""
+    full_path = None
     try:
+        filepath = os.path.join(conversation_id, filename)
         full_path = get_excel_path(filepath)
         result = create_pivot_table_impl(
             filepath=full_path,
@@ -343,23 +434,32 @@ def create_pivot_table(
             columns=columns or [],
             agg_func=agg_func
         )
+        # 上传minio
+        minio_client.minio_upload(filepath, full_path)
         return result["message"]
     except (ValidationError, PivotError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error creating pivot table: {e}")
         raise
+    finally:
+        # 删除full_path文件
+        if full_path and os.path.exists(full_path):
+            os.remove(full_path)
 
 @mcp.tool()
 def create_table(
-    filepath: str,
+    conversation_id: str,
+    filename: str,
     sheet_name: str,
     data_range: str,
     table_name: Optional[str] = None,
     table_style: str = "TableStyleMedium9"
 ) -> str:
     """Creates a native Excel table from a specified range of data."""
+    full_path = None
     try:
+        filepath = os.path.join(conversation_id, filename)
         full_path = get_excel_path(filepath)
         result = create_table_impl(
             filepath=full_path,
@@ -368,70 +468,106 @@ def create_table(
             table_name=table_name,
             table_style=table_style
         )
+        # 上传minio
+        minio_client.minio_upload(filepath, full_path)
         return result["message"]
     except DataError as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error creating table: {e}")
         raise
+    finally:
+        # 删除full_path文件
+        if full_path and os.path.exists(full_path):
+            os.remove(full_path)
 
 @mcp.tool()
 def copy_worksheet(
-    filepath: str,
+    conversation_id: str,
+    filename: str,
     source_sheet: str,
     target_sheet: str
 ) -> str:
     """Copy worksheet within workbook."""
+    full_path = None
     try:
+        filepath = os.path.join(conversation_id, filename)
         full_path = get_excel_path(filepath)
         result = copy_sheet(full_path, source_sheet, target_sheet)
+        # 上传minio
+        minio_client.minio_upload(filepath, full_path)
         return result["message"]
     except (ValidationError, SheetError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error copying worksheet: {e}")
         raise
+    finally:
+        # 删除full_path文件
+        if full_path and os.path.exists(full_path):
+            os.remove(full_path)
 
 @mcp.tool()
 def delete_worksheet(
-    filepath: str,
+    conversation_id: str,
+    filename: str,
     sheet_name: str
 ) -> str:
     """Delete worksheet from workbook."""
+    full_path = None
     try:
+        filepath = os.path.join(conversation_id, filename)
         full_path = get_excel_path(filepath)
         result = delete_sheet(full_path, sheet_name)
+        # 上传minio
+        minio_client.minio_upload(filepath, full_path)
         return result["message"]
     except (ValidationError, SheetError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error deleting worksheet: {e}")
         raise
+    finally:
+        # 删除full_path文件
+        if full_path and os.path.exists(full_path):
+            os.remove(full_path)
 
 @mcp.tool()
 def rename_worksheet(
-    filepath: str,
+    conversation_id: str,
+    filename: str,
     old_name: str,
     new_name: str
 ) -> str:
     """Rename worksheet in workbook."""
+    full_path = None
     try:
+        filepath = os.path.join(conversation_id, filename)
         full_path = get_excel_path(filepath)
         result = rename_sheet(full_path, old_name, new_name)
+        # 上传minio
+        minio_client.minio_upload(filepath, full_path)
         return result["message"]
     except (ValidationError, SheetError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error renaming worksheet: {e}")
         raise
+    finally:
+        # 删除full_path文件
+        if full_path and os.path.exists(full_path):
+            os.remove(full_path)
 
 @mcp.tool()
 def get_workbook_metadata(
-    filepath: str,
+    conversation_id: str,
+    filename: str,
     include_ranges: bool = False
 ) -> str:
     """Get metadata about workbook including sheets, ranges, etc."""
+    full_path = None
     try:
+        filepath = os.path.join(conversation_id, filename)
         full_path = get_excel_path(filepath)
         result = get_workbook_info(full_path, include_ranges=include_ranges)
         return str(result)
@@ -440,48 +576,78 @@ def get_workbook_metadata(
     except Exception as e:
         logger.error(f"Error getting workbook metadata: {e}")
         raise
+    finally:
+        # 删除full_path文件
+        if full_path and os.path.exists(full_path):
+            os.remove(full_path)
 
 @mcp.tool()
-def merge_cells(filepath: str, sheet_name: str, start_cell: str, end_cell: str) -> str:
+def merge_cells(conversation_id: str, filename: str, sheet_name: str, start_cell: str, end_cell: str) -> str:
     """Merge a range of cells."""
+    full_path = None
     try:
+        filepath = os.path.join(conversation_id, filename)
         full_path = get_excel_path(filepath)
         result = merge_range(full_path, sheet_name, start_cell, end_cell)
+        # 上传minio
+        minio_client.minio_upload(filepath, full_path)
         return result["message"]
     except (ValidationError, SheetError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error merging cells: {e}")
         raise
+    finally:
+        # 删除full_path文件
+        if full_path and os.path.exists(full_path):
+            os.remove(full_path)
 
 @mcp.tool()
-def unmerge_cells(filepath: str, sheet_name: str, start_cell: str, end_cell: str) -> str:
+def unmerge_cells(conversation_id: str, filename: str, sheet_name: str, start_cell: str, end_cell: str) -> str:
     """Unmerge a range of cells."""
+    full_path = None
     try:
+        filepath = os.path.join(conversation_id, filename)
         full_path = get_excel_path(filepath)
         result = unmerge_range(full_path, sheet_name, start_cell, end_cell)
+        # 上传minio
+        minio_client.minio_upload(filepath, full_path)
         return result["message"]
     except (ValidationError, SheetError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error unmerging cells: {e}")
         raise
+    finally:
+        # 删除full_path文件
+        if full_path and os.path.exists(full_path):
+            os.remove(full_path)
 
 @mcp.tool()
-def get_merged_cells(filepath: str, sheet_name: str) -> str:
+def get_merged_cells(conversation_id: str, filename: str, sheet_name: str) -> str:
     """Get merged cells in a worksheet."""
+    full_path = None
     try:
+        filepath = os.path.join(conversation_id, filename)
         full_path = get_excel_path(filepath)
-        return str(get_merged_ranges(full_path, sheet_name))
+        res = str(get_merged_ranges(full_path, sheet_name))
+        # 上传minio
+        minio_client.minio_upload(filepath, full_path)
+        return res
     except (ValidationError, SheetError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error getting merged cells: {e}")
         raise
+    finally:
+        # 删除full_path文件
+        if full_path and os.path.exists(full_path):
+            os.remove(full_path)
 
 @mcp.tool()
 def copy_range(
-    filepath: str,
+    conversation_id: str,
+    filename: str,
     sheet_name: str,
     source_start: str,
     source_end: str,
@@ -489,7 +655,9 @@ def copy_range(
     target_sheet: Optional[str] = None
 ) -> str:
     """Copy a range of cells to another location."""
+    full_path = None
     try:
+        filepath = os.path.join(conversation_id, filename)
         full_path = get_excel_path(filepath)
         from excel_mcp.sheet import copy_range_operation
         result = copy_range_operation(
@@ -500,23 +668,32 @@ def copy_range(
             target_start,
             target_sheet or sheet_name  # Use source sheet if target_sheet is None
         )
+        # 上传minio
+        minio_client.minio_upload(filepath, full_path)
         return result["message"]
     except (ValidationError, SheetError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error copying range: {e}")
         raise
+    finally:
+        # 删除full_path文件
+        if full_path and os.path.exists(full_path):
+            os.remove(full_path)
 
 @mcp.tool()
 def delete_range(
-    filepath: str,
+    conversation_id: str,
+    filename: str,
     sheet_name: str,
     start_cell: str,
     end_cell: str,
     shift_direction: str = "up"
 ) -> str:
     """Delete a range of cells and shift remaining cells."""
+    full_path = None
     try:
+        filepath = os.path.join(conversation_id, filename)
         full_path = get_excel_path(filepath)
         from excel_mcp.sheet import delete_range_operation
         result = delete_range_operation(
@@ -526,22 +703,31 @@ def delete_range(
             end_cell,
             shift_direction
         )
+        # 上传minio
+        minio_client.minio_upload(filepath, full_path)
         return result["message"]
     except (ValidationError, SheetError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error deleting range: {e}")
         raise
+    finally:
+        # 删除full_path文件
+        if full_path and os.path.exists(full_path):
+            os.remove(full_path)
 
 @mcp.tool()
 def validate_excel_range(
-    filepath: str,
+    conversation_id: str,
+    filename: str,
     sheet_name: str,
     start_cell: str,
     end_cell: Optional[str] = None
 ) -> str:
     """Validate if a range exists and is properly formatted."""
+    full_path = None
     try:
+        filepath = os.path.join(conversation_id, filename)
         full_path = get_excel_path(filepath)
         range_str = start_cell if not end_cell else f"{start_cell}:{end_cell}"
         result = validate_range_impl(full_path, sheet_name, range_str)
@@ -551,122 +737,169 @@ def validate_excel_range(
     except Exception as e:
         logger.error(f"Error validating range: {e}")
         raise
+    finally:
+        # 删除full_path文件
+        if full_path and os.path.exists(full_path):
+            os.remove(full_path)
 
 @mcp.tool()
 def get_data_validation_info(
-    filepath: str,
+    conversation_id: str,
+    filename: str,
     sheet_name: str
 ) -> str:
     """
     Get all data validation rules in a worksheet.
-    
+
     This tool helps identify which cell ranges have validation rules
     and what types of validation are applied.
-    
+
     Args:
         filepath: Path to Excel file
         sheet_name: Name of worksheet
-        
+
     Returns:
         JSON string containing all validation rules in the worksheet
     """
+    full_path = None
     try:
+        filepath = os.path.join(conversation_id, filename)
         full_path = get_excel_path(filepath)
         from openpyxl import load_workbook
         from excel_mcp.cell_validation import get_all_validation_ranges
-        
+
         wb = load_workbook(full_path, read_only=False)
         if sheet_name not in wb.sheetnames:
             return f"Error: Sheet '{sheet_name}' not found"
-            
+
         ws = wb[sheet_name]
         validations = get_all_validation_ranges(ws)
         wb.close()
-        
+
         if not validations:
             return "No data validation rules found in this worksheet"
-            
+
         import json
         return json.dumps({
             "sheet_name": sheet_name,
             "validation_rules": validations
         }, indent=2, default=str)
-        
+
     except Exception as e:
         logger.error(f"Error getting validation info: {e}")
         raise
+    finally:
+        # 删除full_path文件
+        if full_path and os.path.exists(full_path):
+            os.remove(full_path)
 
 @mcp.tool()
 def insert_rows(
-    filepath: str,
+    conversation_id: str,
+    filename: str,
     sheet_name: str,
     start_row: int,
     count: int = 1
 ) -> str:
     """Insert one or more rows starting at the specified row."""
+    full_path = None
     try:
+        filepath = os.path.join(conversation_id, filename)
         full_path = get_excel_path(filepath)
         result = insert_row(full_path, sheet_name, start_row, count)
+        # 上传minio
+        minio_client.minio_upload(filepath, full_path)
         return result["message"]
     except (ValidationError, SheetError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error inserting rows: {e}")
         raise
+    finally:
+        # 删除full_path文件
+        if full_path and os.path.exists(full_path):
+            os.remove(full_path)
 
 @mcp.tool()
 def insert_columns(
-    filepath: str,
+    conversation_id: str,
+    filename: str,
     sheet_name: str,
     start_col: int,
     count: int = 1
 ) -> str:
     """Insert one or more columns starting at the specified column."""
+    full_path = None
     try:
+        filepath = os.path.join(conversation_id, filename)
         full_path = get_excel_path(filepath)
         result = insert_cols(full_path, sheet_name, start_col, count)
+        # 上传minio
+        minio_client.minio_upload(filepath, full_path)
         return result["message"]
     except (ValidationError, SheetError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error inserting columns: {e}")
         raise
+    finally:
+        # 删除full_path文件
+        if full_path and os.path.exists(full_path):
+            os.remove(full_path)
 
 @mcp.tool()
 def delete_sheet_rows(
-    filepath: str,
+    conversation_id: str,
+    filename: str,
     sheet_name: str,
     start_row: int,
     count: int = 1
 ) -> str:
     """Delete one or more rows starting at the specified row."""
+    full_path = None
     try:
+        filepath = os.path.join(conversation_id, filename)
         full_path = get_excel_path(filepath)
         result = delete_rows(full_path, sheet_name, start_row, count)
+        # 上传minio
+        minio_client.minio_upload(filepath, full_path)
         return result["message"]
     except (ValidationError, SheetError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error deleting rows: {e}")
         raise
+    finally:
+        # 删除full_path文件
+        if full_path and os.path.exists(full_path):
+            os.remove(full_path)
 
 @mcp.tool()
 def delete_sheet_columns(
-    filepath: str,
+    conversation_id: str,
+    filename: str,
     sheet_name: str,
     start_col: int,
     count: int = 1
 ) -> str:
     """Delete one or more columns starting at the specified column."""
+    full_path = None
     try:
+        filepath = os.path.join(conversation_id, filename)
         full_path = get_excel_path(filepath)
         result = delete_cols(full_path, sheet_name, start_col, count)
+        # 上传minio
+        minio_client.minio_upload(filepath, full_path)
         return result["message"]
     except (ValidationError, SheetError) as e:
         return f"Error: {str(e)}"
     except Exception as e:
         logger.error(f"Error deleting columns: {e}")
         raise
+    finally:
+        # 删除full_path文件
+        if full_path and os.path.exists(full_path):
+            os.remove(full_path)
 
 def run_sse():
     """Run Excel MCP server in SSE mode."""

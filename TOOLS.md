@@ -9,10 +9,11 @@ This document provides detailed information about all available tools in the Exc
 Creates a new Excel workbook.
 
 ```python
-create_workbook(filepath: str) -> str
+create_workbook(conversation_id: str, filename: str) -> str
 ```
 
-- `filepath`: Path where to create workbook
+- `conversation_id`: current conversation id
+- `filename`: Excel file name
 - Returns: Success message with created file path
 
 ### create_worksheet
@@ -20,10 +21,11 @@ create_workbook(filepath: str) -> str
 Creates a new worksheet in an existing workbook.
 
 ```python
-create_worksheet(filepath: str, sheet_name: str) -> str
+create_worksheet(conversation_id: str, filename: str, sheet_name: str) -> str
 ```
 
-- `filepath`: Path to Excel file
+- `conversation_id`: current conversation id
+- `filename`: Excel file name
 - `sheet_name`: Name for the new worksheet
 - Returns: Success message
 
@@ -32,10 +34,11 @@ create_worksheet(filepath: str, sheet_name: str) -> str
 Get metadata about workbook including sheets and ranges.
 
 ```python
-get_workbook_metadata(filepath: str, include_ranges: bool = False) -> str
+get_workbook_metadata(conversation_id: str, filename: str, include_ranges: bool = False) -> str
 ```
 
-- `filepath`: Path to Excel file
+- `conversation_id`: current conversation id
+- `filename`: Excel file name
 - `include_ranges`: Whether to include range information
 - Returns: String representation of workbook metadata
 
@@ -47,14 +50,16 @@ Write data to Excel worksheet.
 
 ```python
 write_data_to_excel(
-    filepath: str,
+    conversation_id: str,
+    filename: str,
     sheet_name: str,
     data: List[Dict],
     start_cell: str = "A1"
 ) -> str
 ```
 
-- `filepath`: Path to Excel file
+- `conversation_id`: current conversation id
+- `filename`: Excel file name
 - `sheet_name`: Target worksheet name
 - `data`: List of dictionaries containing data to write
 - `start_cell`: Starting cell (default: "A1")
@@ -66,7 +71,8 @@ Read data from Excel worksheet.
 
 ```python
 read_data_from_excel(
-    filepath: str,
+    conversation_id: str,
+    filename: str,
     sheet_name: str,
     start_cell: str = "A1",
     end_cell: str = None,
@@ -74,7 +80,8 @@ read_data_from_excel(
 ) -> str
 ```
 
-- `filepath`: Path to Excel file
+- `conversation_id`: current conversation id
+- `filename`: Excel file name
 - `sheet_name`: Source worksheet name
 - `start_cell`: Starting cell (default: "A1")
 - `end_cell`: Optional ending cell
@@ -89,7 +96,8 @@ Apply formatting to a range of cells.
 
 ```python
 format_range(
-    filepath: str,
+    conversation_id: str,
+    filename: str,
     sheet_name: str,
     start_cell: str,
     end_cell: str = None,
@@ -110,7 +118,8 @@ format_range(
 ) -> str
 ```
 
-- `filepath`: Path to Excel file
+- `conversation_id`: current conversation id
+- `filename`: Excel file name
 - `sheet_name`: Target worksheet name
 - `start_cell`: Starting cell of range
 - `end_cell`: Optional ending cell of range
@@ -122,10 +131,11 @@ format_range(
 Merge a range of cells.
 
 ```python
-merge_cells(filepath: str, sheet_name: str, start_cell: str, end_cell: str) -> str
+merge_cells(conversation_id: str, filename: str, sheet_name: str, start_cell: str, end_cell: str) -> str
 ```
 
-- `filepath`: Path to Excel file
+- `conversation_id`: current conversation id
+- `filename`: Excel file name
 - `sheet_name`: Target worksheet name
 - `start_cell`: Starting cell of range
 - `end_cell`: Ending cell of range
@@ -136,10 +146,11 @@ merge_cells(filepath: str, sheet_name: str, start_cell: str, end_cell: str) -> s
 Unmerge a previously merged range of cells.
 
 ```python
-unmerge_cells(filepath: str, sheet_name: str, start_cell: str, end_cell: str) -> str
+unmerge_cells(conversation_id: str, filename: str, sheet_name: str, start_cell: str, end_cell: str) -> str
 ```
 
-- `filepath`: Path to Excel file
+- `conversation_id`: current conversation id
+- `filename`: Excel file name
 - `sheet_name`: Target worksheet name
 - `start_cell`: Starting cell of range
 - `end_cell`: Ending cell of range
@@ -150,10 +161,11 @@ unmerge_cells(filepath: str, sheet_name: str, start_cell: str, end_cell: str) ->
 Get merged cells in a worksheet.
 
 ```python
-get_merged_cells(filepath: str, sheet_name: str) -> str
+get_merged_cells(conversation_id: str, filename: str, sheet_name: str) -> str
 ```
 
-- `filepath`: Path to Excel file
+- `conversation_id`: current conversation id
+- `filename`: Excel file name
 - `sheet_name`: Target worksheet name
 - Returns: String representation of merged cells
 
@@ -165,10 +177,11 @@ get_merged_cells(filepath: str, sheet_name: str) -> str
 Apply Excel formula to cell.
 
 ```python
-apply_formula(filepath: str, sheet_name: str, cell: str, formula: str) -> str
+apply_formula(conversation_id: str, filename: str, sheet_name: str, cell: str, formula: str) -> str
 ```
 
-- `filepath`: Path to Excel file
+- `conversation_id`: current conversation id
+- `filename`: Excel file name
 - `sheet_name`: Target worksheet name
 - `cell`: Target cell reference
 - `formula`: Excel formula to apply
@@ -179,10 +192,11 @@ apply_formula(filepath: str, sheet_name: str, cell: str, formula: str) -> str
 Validate Excel formula syntax without applying it.
 
 ```python
-validate_formula_syntax(filepath: str, sheet_name: str, cell: str, formula: str) -> str
+validate_formula_syntax(conversation_id: str, filename: str, sheet_name: str, cell: str, formula: str) -> str
 ```
 
-- `filepath`: Path to Excel file
+- `conversation_id`: current conversation id
+- `filename`: Excel file name
 - `sheet_name`: Target worksheet name
 - `cell`: Target cell reference
 - `formula`: Excel formula to validate
@@ -196,7 +210,8 @@ Create chart in worksheet.
 
 ```python
 create_chart(
-    filepath: str,
+    conversation_id: str,
+    filename: str,
     sheet_name: str,
     data_range: str,
     chart_type: str,
@@ -207,7 +222,8 @@ create_chart(
 ) -> str
 ```
 
-- `filepath`: Path to Excel file
+- `conversation_id`: current conversation id
+- `filename`: Excel file name
 - `sheet_name`: Target worksheet name
 - `data_range`: Range containing chart data
 - `chart_type`: Type of chart (line, bar, pie, scatter, area)
@@ -225,7 +241,8 @@ Create pivot table in worksheet.
 
 ```python
 create_pivot_table(
-    filepath: str,
+    conversation_id: str,
+    filename: str,
     sheet_name: str,
     data_range: str,
     target_cell: str,
@@ -236,7 +253,8 @@ create_pivot_table(
 ) -> str
 ```
 
-- `filepath`: Path to Excel file
+- `conversation_id`: current conversation id
+- `filename`: Excel file name
 - `sheet_name`: Target worksheet name
 - `data_range`: Range containing source data
 - `target_cell`: Cell where to place pivot table
@@ -254,7 +272,8 @@ Creates a native Excel table from a specified range of data.
 
 ```python
 create_table(
-    filepath: str,
+    conversation_id: str,
+    filename: str,
     sheet_name: str,
     data_range: str,
     table_name: str = None,
@@ -262,7 +281,8 @@ create_table(
 ) -> str
 ```
 
-- `filepath`: Path to the Excel file.
+- `conversation_id`: current conversation id
+- `filename`: Excel file name
 - `sheet_name`: Name of the worksheet.
 - `data_range`: The cell range for the table (e.g., "A1:D5").
 - `table_name`: Optional unique name for the table.
@@ -276,10 +296,11 @@ create_table(
 Copy worksheet within workbook.
 
 ```python
-copy_worksheet(filepath: str, source_sheet: str, target_sheet: str) -> str
+copy_worksheet(conversation_id: str, filename: str, source_sheet: str, target_sheet: str) -> str
 ```
 
-- `filepath`: Path to Excel file
+- `conversation_id`: current conversation id
+- `filename`: Excel file name
 - `source_sheet`: Name of sheet to copy
 - `target_sheet`: Name for new sheet
 - Returns: Success message
@@ -289,10 +310,11 @@ copy_worksheet(filepath: str, source_sheet: str, target_sheet: str) -> str
 Delete worksheet from workbook.
 
 ```python
-delete_worksheet(filepath: str, sheet_name: str) -> str
+delete_worksheet(conversation_id: str, filename: str, sheet_name: str) -> str
 ```
 
-- `filepath`: Path to Excel file
+- `conversation_id`: current conversation id
+- `filename`: Excel file name
 - `sheet_name`: Name of sheet to delete
 - Returns: Success message
 
@@ -301,10 +323,11 @@ delete_worksheet(filepath: str, sheet_name: str) -> str
 Rename worksheet in workbook.
 
 ```python
-rename_worksheet(filepath: str, old_name: str, new_name: str) -> str
+rename_worksheet(conversation_id: str, filename: str, old_name: str, new_name: str) -> str
 ```
 
-- `filepath`: Path to Excel file
+- `conversation_id`: current conversation id
+- `filename`: Excel file name
 - `old_name`: Current sheet name
 - `new_name`: New sheet name
 - Returns: Success message
@@ -317,7 +340,8 @@ Copy a range of cells to another location.
 
 ```python
 copy_range(
-    filepath: str,
+    conversation_id: str,
+    filename: str,
     sheet_name: str,
     source_start: str,
     source_end: str,
@@ -326,7 +350,8 @@ copy_range(
 ) -> str
 ```
 
-- `filepath`: Path to Excel file
+- `conversation_id`: current conversation id
+- `filename`: Excel file name
 - `sheet_name`: Source worksheet name
 - `source_start`: Starting cell of source range
 - `source_end`: Ending cell of source range
@@ -340,7 +365,8 @@ Delete a range of cells and shift remaining cells.
 
 ```python
 delete_range(
-    filepath: str,
+    conversation_id: str,
+    filename: str,
     sheet_name: str,
     start_cell: str,
     end_cell: str,
@@ -348,7 +374,8 @@ delete_range(
 ) -> str
 ```
 
-- `filepath`: Path to Excel file
+- `conversation_id`: current conversation id
+- `filename`: Excel file name
 - `sheet_name`: Target worksheet name
 - `start_cell`: Starting cell of range
 - `end_cell`: Ending cell of range
@@ -361,14 +388,16 @@ Validate if a range exists and is properly formatted.
 
 ```python
 validate_excel_range(
-    filepath: str,
+    conversation_id: str,
+    filename: str,
     sheet_name: str,
     start_cell: str,
     end_cell: str = None
 ) -> str
 ```
 
-- `filepath`: Path to Excel file
+- `conversation_id`: current conversation id
+- `filename`: Excel file name
 - `sheet_name`: Target worksheet name
 - `start_cell`: Starting cell of range
 - `end_cell`: Optional ending cell of range
@@ -379,10 +408,11 @@ validate_excel_range(
 Get data validation rules and metadata for a worksheet.
 
 ```python
-get_data_validation_info(filepath: str, sheet_name: str) -> str
+get_data_validation_info(conversation_id: str, filename: str, sheet_name: str) -> str
 ```
 
-- `filepath`: Path to Excel file
+- `conversation_id`: current conversation id
+- `filename`: Excel file name
 - `sheet_name`: Target worksheet name
 - Returns: JSON string containing all data validation rules with metadata including:
   - Validation type (list, whole, decimal, date, time, textLength)
@@ -402,14 +432,16 @@ Insert one or more rows starting at the specified row.
 
 ```python
 insert_rows(
-    filepath: str,
+    conversation_id: str,
+    filename: str,
     sheet_name: str,
     start_row: int,
     count: int = 1
 ) -> str
 ```
 
-- `filepath`: Path to Excel file
+- `conversation_id`: current conversation id
+- `filename`: Excel file name
 - `sheet_name`: Target worksheet name
 - `start_row`: Row number where to start inserting (1-based)
 - `count`: Number of rows to insert (default: 1)
@@ -421,14 +453,16 @@ Insert one or more columns starting at the specified column.
 
 ```python
 insert_columns(
-    filepath: str,
+    conversation_id: str,
+    filename: str,
     sheet_name: str,
     start_col: int,
     count: int = 1
 ) -> str
 ```
 
-- `filepath`: Path to Excel file
+- `conversation_id`: current conversation id
+- `filename`: Excel file name
 - `sheet_name`: Target worksheet name
 - `start_col`: Column number where to start inserting (1-based)
 - `count`: Number of columns to insert (default: 1)
@@ -440,14 +474,16 @@ Delete one or more rows starting at the specified row.
 
 ```python
 delete_sheet_rows(
-    filepath: str,
+    conversation_id: str,
+    filename: str,
     sheet_name: str,
     start_row: int,
     count: int = 1
 ) -> str
 ```
 
-- `filepath`: Path to Excel file
+- `conversation_id`: current conversation id
+- `filename`: Excel file name
 - `sheet_name`: Target worksheet name
 - `start_row`: Row number where to start deleting (1-based)
 - `count`: Number of rows to delete (default: 1)
@@ -459,15 +495,31 @@ Delete one or more columns starting at the specified column.
 
 ```python
 delete_sheet_columns(
-    filepath: str,
+    conversation_id: str,
+    filename: str,
     sheet_name: str,
     start_col: int,
     count: int = 1
 ) -> str
 ```
 
-- `filepath`: Path to Excel file
+- `conversation_id`: current conversation id
+- `filename`: Excel file name
 - `sheet_name`: Target worksheet name
 - `start_col`: Column number where to start deleting (1-based)
 - `count`: Number of columns to delete (default: 1)
 - Returns: Success message
+
+## Workbook Download
+
+### get_excel_download_url
+
+Return a downloadable HTTP URL.
+
+```python
+get_excel_download_url(conversation_id: str, filename: str) -> str
+```
+
+- `conversation_id`: current conversation id
+- `filename`: Excel file name
+- Returns: HTTP URL string that can be used to download the file

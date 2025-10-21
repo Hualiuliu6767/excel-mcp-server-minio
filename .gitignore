@@ -1,6 +1,8 @@
 .venv/
+.idea/
 dist/
 excel_files/
 __pycache__/
 .notes/
 *.log
+start.txt
