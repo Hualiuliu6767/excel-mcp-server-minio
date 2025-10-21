@@ -14,7 +14,7 @@
 
 ### 如何部署
 
-我打包好了docker镜像，excel-mcp-server-minio-image.tar
+下载打包好的docker镜像，[excel-mcp-server-minio-image.tar](https://github.com/Hualiuliu6767/excel-mcp-server-minio/releases/download/excel-mcp-server-minio-v1.0/excel-mcp-server-minio-image.tar)
 
 ```shell
 # 加载镜像
@@ -165,10 +165,6 @@ When using the **stdio protocol**, the file path is provided with each tool call
 ## Available Tools
 
 The server provides a comprehensive set of Excel manipulation tools. See [TOOLS.md](TOOLS.md) for complete documentation of all available tools.
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=haris-musa/excel-mcp-server&type=Date)](https://www.star-history.com/#haris-musa/excel-mcp-server&Date)
 
 ## License
 
