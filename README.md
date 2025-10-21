@@ -14,22 +14,23 @@
 
 ### 如何部署
 
-下载打包好的docker镜像，[excel-mcp-server-minio-image.tar](https://github.com/Hualiuliu6767/excel-mcp-server-minio/releases/download/excel-mcp-server-minio-v1.0/excel-mcp-server-minio-image.tar)
+下载打包好的docker镜像，[excel-mcp-server-minio-image.tar.zip](https://github.com/Hualiuliu6767/excel-mcp-server-minio/releases/download/excel-mcp-server-minio-v1.0/excel-mcp-server-minio-image.tar.zip)
 
 ```shell
 # 加载镜像
+unzip excel-mcp-server-minio-image.tar.zip
 docker load -i excel-mcp-server-minio-image.tar
 
 # 配置物理机的excel_files路径
 # 配置物理机的config.ini路径
-# 启动
+# 启动（最后一个参数如果不写,默认是sse的方式启动）
 docker run -d \
 --name excel-mcp-server-minio \
 -p 8000:8017 \
--v ./excel_files:/app/excel_files \
--v ./config.ini:/app/conf/config.ini \
+-v ./excel_files:/app/excel_files \# 临时文件存储路径
+-v ./config.ini:/app/conf/config.ini \# minio配置文件
 -e EXCEL_FILES_PATH="/app/excel_files" \
-excel-mcp-server-minio:1.0
+excel-mcp-server-minio:1.0 [sse 或 streamable-http]
 
 # 如何导入大模型平台使用，参考下面Usage部分
 
@@ -88,24 +89,7 @@ A Model Context Protocol (MCP) server that lets you manipulate Excel files witho
 
 The server supports three transport methods:
 
-### 1. Stdio Transport (for local use)
-
-```bash
-uvx excel-mcp-server stdio
-```
-
-```json
-{
-   "mcpServers": {
-      "excel": {
-         "command": "uvx",
-         "args": ["excel-mcp-server", "stdio"]
-      }
-   }
-}
-```
-
-### 2. SSE Transport (Server-Sent Events - Deprecated)
+### 1. SSE Transport (Server-Sent Events - Deprecated)
 
 ```bash
 uvx excel-mcp-server sse
@@ -122,7 +106,7 @@ uvx excel-mcp-server sse
 }
 ```
 
-### 3. Streamable HTTP Transport (Recommended for remote connections)
+### 2. Streamable HTTP Transport (Recommended for remote connections)
 
 ```bash
 uvx excel-mcp-server streamable-http
@@ -138,29 +122,6 @@ uvx excel-mcp-server streamable-http
    }
 }
 ```
-
-## Environment Variables & File Path Handling
-
-### SSE and Streamable HTTP Transports
-
-When running the server with the **SSE or Streamable HTTP protocols**, you **must set the `EXCEL_FILES_PATH` environment variable on the server side**. This variable tells the server where to read and write Excel files.
-- If not set, it defaults to `./excel_files`.
-
-You can also set the `FASTMCP_PORT` environment variable to control the port the server listens on (default is `8017` if not set).
-- Example (Windows PowerShell):
-  ```powershell
-  $env:EXCEL_FILES_PATH="E:\MyExcelFiles"
-  $env:FASTMCP_PORT="8007"
-  uvx excel-mcp-server streamable-http
-  ```
-- Example (Linux/macOS):
-  ```bash
-  EXCEL_FILES_PATH=/path/to/excel_files FASTMCP_PORT=8007 uvx excel-mcp-server streamable-http
-  ```
-
-### Stdio Transport
-
-When using the **stdio protocol**, the file path is provided with each tool call, so you do **not** need to set `EXCEL_FILES_PATH` on the server. The server will use the path sent by the client for each operation.
 
 ## Available Tools
 
